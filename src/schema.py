@@ -1,22 +1,33 @@
+"""
+Shared PySpark schemas for the project. Everyone should import
+from here rather than redefining schemas locally.
+"""
+
 from pyspark.sql.types import (
-    ArrayType, IntegerType, LongType, StringType, StructField, StructType, TimestampType
+    ArrayType,
+    IntegerType,
+    LongType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
 )
 
 # Processed videos table (data/processed/videos_vN/), partitioned by publish_year.
 VIDEO_SCHEMA = StructType([
-    StructField("video_id", StringType(), nullable=False),       # primary key
+    StructField("video_id", StringType(), nullable=False),
     StructField("title", StringType(), nullable=False),
-    StructField("description", StringType(), nullable=False),    # "" if missing
-    StructField("tags", ArrayType(StringType(), containsNull=False), nullable=False),  # [] if none
-    StructField("text_clean", StringType(), nullable=False),     # input for shingling / TF-IDF
+    StructField("description", StringType(), nullable=False),
+    StructField("tags", ArrayType(StringType(), containsNull=False), nullable=False),
+    StructField("text_clean", StringType(), nullable=False),
     StructField("category_id", StringType(), nullable=False),
     StructField("channel_id", StringType(), nullable=False),
-    StructField("published_at", TimestampType(), nullable=False),  # UTC
+    StructField("published_at", TimestampType(), nullable=False),
     StructField("view_count", LongType(), nullable=True),
-    StructField("like_count", LongType(), nullable=True),        # null if hidden, never 0-filled
-    StructField("comment_count", LongType(), nullable=True),     # null if disabled, never 0-filled
+    StructField("like_count", LongType(), nullable=True),
+    StructField("comment_count", LongType(), nullable=True),
     StructField("language", StringType(), nullable=True),
-    StructField("publish_year", IntegerType(), nullable=False),  # partition column
+    StructField("publish_year", IntegerType(), nullable=False),
 ])
 
 # Lookup: video category names (from videoCategories.list).
@@ -53,9 +64,14 @@ def read_videos(spark, path: str):
 
 
 def validate_videos(df) -> None:
-    """Raise if the DataFrame doesn't match VIDEO_SCHEMA's column names and types."""
-    expected = {f.name: f.dataType for f in VIDEO_SCHEMA.fields}
-    actual = {f.name: f.dataType for f in df.schema.fields}
+    """Raise if the DataFrame doesn't match VIDEO_SCHEMA's column names and types.
+
+    Types are compared by simpleString(), which ignores nullability: Spark marks
+    every column (and array element) as nullable when it reads Parquet, so a strict
+    comparison would reject a correct file.
+    """
+    expected = {f.name: f.dataType.simpleString() for f in VIDEO_SCHEMA.fields}
+    actual = {f.name: f.dataType.simpleString() for f in df.schema.fields}
 
     missing = expected.keys() - actual.keys()
     extra = actual.keys() - expected.keys()
